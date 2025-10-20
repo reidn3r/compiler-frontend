@@ -16,19 +16,24 @@ class Lexer(AbstractLexer):
   t_MINUS = r'-'
   t_MULT = r'\*'
   t_ASSIGN = r':='
+  t_EQ = r'='
   t_NEQ = r'<>'
   t_GT = r'>'
   t_LT = r'<'
   t_GEQ = r'>='
   t_LEQ = r'<='
   t_COLON = r':'
+  t_FALSE = r'false'
+  t_TRUE = r'true'
+  t_BOOLEAN = r'boolean'
+  t_INTEGER = r'integer'
   
   def t_ID(self, t):
     r'[a-zA-Z][a-zA-Z_0-9]*'
     t.type = self.reserved.get(t.value, 'ID')  
     return t
 
-  def t_INTEGER(self, t):
+  def t_NUMBER(self, t):
     r'\d+'
     t.value = int(t.value) 
     return t

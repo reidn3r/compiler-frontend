@@ -18,13 +18,17 @@ class AbstractLexer:
     "and": "AND",
     "or": "OR",
     "not": "NOT",
-    "div": "DIV"
+    "div": "DIV",
+    "false": "FALSE",
+    "true": "TRUE",
+    "boolean": "BOOLEAN",
+    "integer": "INTEGER",
   }
 
   tokens = list(reserved.values()) + [
-    'ID','INTEGER', 'LPAREN', 'RPAREN', 'DOT',
+    'ID','NUMBER', 'LPAREN', 'RPAREN', 'DOT',
     'COMMA', 'SEMICOLON', 'PLUS', 'MINUS', 'MULT',
-    'ASSIGN', 'NEQ', 'GT', 'LT', 'GEQ', 'LEQ', 'COLON'
+    'ASSIGN', 'EQ', 'NEQ', 'GT', 'LT', 'GEQ', 'LEQ', 'COLON'
   ]
 
   def __init__(self):
