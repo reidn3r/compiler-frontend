@@ -11,7 +11,8 @@ def main():
   code_path = sys.argv[1]
   buffer: str = file_to_buffer(path=code_path)
   parser = Parser()
-  pprint.pprint(parser.parse(buffer))
+  ast = parser.parse(buffer)
+  pprint.pprint(ast)
 
 if __name__ == "__main__":
   main()
