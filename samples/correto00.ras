@@ -1,0 +1,13 @@
+program specification;
+var
+    i, n, f : integer;
+
+begin
+    read(i, n, f);
+    while i < n do
+    begin
+        f := f * i;
+        i := i + 1
+    end;
+    write(i, f)
+end.

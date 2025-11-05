@@ -10,7 +10,7 @@ class Parser:
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
-    print("Syntactic Analysis success.")
+    print("Parsing completed successfully.")
     p[0] = (ast.PROGRAM, p[2], p[4])
 
   def p_block(self, p):
@@ -113,7 +113,7 @@ class Parser:
 
   def p_compound_statement(self, p):
     '''compound_statement : BEGIN statement_list END'''
-    p[0] = (ast.BEGIN_END, p[2])
+    p[0] = (ast.COMMAND_SEQ, p[2])
 
   def p_statement_list(self, p):
     '''statement_list : statement
@@ -177,7 +177,7 @@ class Parser:
     '''expression : simple_expression relational_op simple_expression
                   | simple_expression'''
     if len(p) == 4:
-        p[0] = (ast.BINARY_OP, p[2], p[1], p[3])
+        p[0] = (ast.BINARY_OP, p[1], p[2], p[3])
     else:
         p[0] = p[1]
 
@@ -198,7 +198,7 @@ class Parser:
     if len(p) == 2:
         p[0] = p[1]
     else:
-        p[0] = (ast.BINARY_OP, p[2], p[1], p[3])
+        p[0] = (ast.BINARY_OP, p[1], p[2], p[3])
 
   def p_term(self, p):
     '''term : factor
@@ -208,7 +208,7 @@ class Parser:
     if len(p) == 2:
         p[0] = p[1]
     else:
-        p[0] = (ast.BINARY_OP, p[2], p[1], p[3])
+        p[0] = (ast.BINARY_OP, p[1], p[2], p[3])
 
   def p_factor(self, p):
     '''factor : variable
@@ -244,7 +244,7 @@ class Parser:
 
   def p_identifier(self, p):
     '''identifier : ID'''
-    p[0] = (ast.ID, p[1])
+    p[0] = p[1]
 
   def p_number(self, p):
     '''number : NUMBER'''
