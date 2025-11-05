@@ -12,7 +12,9 @@ def main():
   buffer: str = file_to_buffer(path=code_path)
   parser = Parser()
   ast = parser.parse(buffer)
-  pprint.pprint(ast)
+  
+  if ast:
+    pprint.pprint(ast)
 
 if __name__ == "__main__":
   main()

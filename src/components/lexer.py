@@ -46,7 +46,8 @@ class Lexer(AbstractLexer):
 
   def t_error(self, t):
     print(f"Caractere inválido '{t.value[0]}' na linha {t.lineno}")
-    t.lexer.skip(1)
+    # t.lexer.skip(1)
+    raise SystemExit("Análise léxica interrompida devido a erro.")
   
   def tokenize(self, buffer: str):
     self.lexer.input(buffer)

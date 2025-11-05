@@ -10,7 +10,6 @@ class Parser:
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
-    print("Parsing completed successfully.")
     p[0] = (ast.PROGRAM, p[2], p[4])
 
   def p_block(self, p):
@@ -56,7 +55,7 @@ class Parser:
 
   def p_subroutine_declaration_section(self, p):
     '''subroutine_declaration_section : subroutine_declaration_list'''
-    p[0] = (ast.SUBROUTINE, p[1])
+    p[0] = (ast.SUBROUTINE_SECTION, p[1])
 
   def p_subroutine_declaration_list(self, p):
     '''subroutine_declaration_list : subroutine_declaration SEMICOLON
@@ -252,9 +251,12 @@ class Parser:
 
   def p_error(self, p):
     if p:
-        print(f"Syntax error at token {p.type} ('{p.value}') at line {p.lineno}")
+        print(f"Erro sintático: token inesperado '{p.value}' (tipo {p.type}) na linha {p.lineno}")
     else:
-        print("Syntax error at EOF")
+        print("Erro sintático: fim inesperado do arquivo (EOF)")
+
+    self.has_error = True
+    return
 
   def parse(self, source: str):
       return self.parser.parse(source, lexer=self.lexer.lexer)
