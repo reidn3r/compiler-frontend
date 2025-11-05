@@ -137,7 +137,7 @@ class Parser:
 
   def p_procedure_call(self, p):
     '''procedure_call : identifier LPAREN expression_list RPAREN
-                      | identifier'''
+                      | identifier LPAREN RPAREN'''
     if len(p) == 5:
         p[0] = ('proc_call', p[1], p[3])
     else:
@@ -233,8 +233,12 @@ class Parser:
     p[0] = ('bool', p[1])
 
   def p_function_call(self, p):
-    '''function_call : identifier LPAREN expression_list RPAREN'''
-    p[0] = ('func_call', p[1], p[3])
+    '''function_call : identifier LPAREN expression_list RPAREN
+                     | identifier LPAREN RPAREN'''
+    if len(p) == 5:
+      p[0] = ('func_call', p[1], p[3])
+    else:
+      p[0] = ('func_call', p[1], None)
 
   def p_identifier(self, p):
     '''identifier : ID'''
