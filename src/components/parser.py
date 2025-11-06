@@ -7,6 +7,7 @@ class Parser:
     self.lexer = Lexer()
     self.tokens = self.lexer.tokens
     self.parser = yacc.yacc(module=self)
+    self.has_error = False
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
@@ -249,6 +250,43 @@ class Parser:
     '''number : NUMBER'''
     p[0] = (ast.NUM, p[1])
 
+  def p_simple_expression_plus_error(self, p):
+    'simple_expression : simple_expression PLUS error term'
+    print(f"Operador inesperado após '+'. Esperava um <fator> (variável, número ou '(' expressão ')'). "
+          f"Linha {p.lineno(3)}.")
+    self.has_error = True
+    self.parser.errok()
+
+  def p_simple_expression_minus_error(self, p):
+    'simple_expression : simple_expression MINUS error term'
+    print(f"Operador inesperado após '-'. Esperava um <fator>. Linha {p.lineno(3)}.")
+    self.has_error = True
+    self.parser.errok()
+
+  def p_simple_expression_or_error(self, p):
+    'simple_expression : simple_expression OR error term'
+    print(f"Operador 'or' deve ser seguido de um <fator>. Linha {p.lineno(3)}.")
+    self.has_error = True
+    self.parser.errok()
+
+  def p_term_mult_error(self, p):
+    'term : term MULT error factor'
+    print(f"Operador '*' deve ser seguido de um <fator>. Linha {p.lineno(3)}.")
+    self.has_error = True
+    self.parser.errok()
+
+  def p_term_div_error(self, p):
+    'term : term DIV error factor'
+    print(f"Operador '/' deve ser seguido de um <fator>. Linha {p.lineno(3)}.")
+    self.has_error = True
+    self.parser.errok()
+
+  def p_term_and_error(self, p):
+    'term : term AND error factor'
+    print(f"Operador 'and' deve ser seguido de um <fator>. Linha {p.lineno(3)}.")
+    self.has_error = True
+    self.parser.errok()
+
   def p_error(self, p):
     if p:
         print(f"Erro sintático: token inesperado '{p.value}' (tipo {p.type}) na linha {p.lineno}")
@@ -256,7 +294,6 @@ class Parser:
         print("Erro sintático: fim inesperado do arquivo (EOF)")
 
     self.has_error = True
-    return
 
   def parse(self, source: str):
-      return self.parser.parse(source, lexer=self.lexer.lexer)
+    return self.parser.parse(source, lexer=self.lexer.lexer)
