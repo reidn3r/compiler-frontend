@@ -11,7 +11,7 @@ def run_parser_on_file(file_path: str):
         rel_path = file_path.relative_to(Path.cwd())
     except ValueError:
         rel_path = file_path
-    print(f"Testing file: {rel_path}")
+    print(f"Running file: {rel_path}")
     print("-" * 80)
 
     buffer: str = file_to_buffer(path=file_path)
@@ -34,8 +34,9 @@ def main():
     for file_path in samples:
         run_parser_on_file(file_path)
 
-    print("All tests completed.\n")
+    print("=" * 80)
 
+    print("\nAll runs completed.\n")
 
 if __name__ == "__main__":
     main()
