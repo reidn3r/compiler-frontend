@@ -1,6 +1,9 @@
 from src.abstract.abstract_lexer import AbstractLexer
 import ply.lex as lex
 
+class LexicalError(Exception):
+    pass
+
 class Lexer(AbstractLexer):
   def __init__(self):
     super().__init__()
@@ -47,7 +50,7 @@ class Lexer(AbstractLexer):
   def t_error(self, t):
     print(f"Caractere inválido '{t.value[0]}' na linha {t.lineno}")
     # t.lexer.skip(1)
-    raise SystemExit("Análise léxica interrompida devido a erro.")
+    raise LexicalError(f"Caractere inválido '{t.value[0]}' na linha {t.lineno}")
   
   def tokenize(self, buffer: str):
     self.lexer.input(buffer)

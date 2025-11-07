@@ -7,7 +7,6 @@ class Parser:
     self.lexer = Lexer()
     self.tokens = self.lexer.tokens
     self.parser = yacc.yacc(module=self)
-    self.has_error = False
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
@@ -60,7 +59,7 @@ class Parser:
 
   def p_subroutine_declaration_list(self, p):
     '''subroutine_declaration_list : subroutine_declaration SEMICOLON
-                                    | subroutine_declaration_list subroutine_declaration SEMICOLON'''
+                                   | subroutine_declaration_list subroutine_declaration SEMICOLON'''
     if len(p) == 3:
         p[0] = [p[1]]
     else:
@@ -68,12 +67,12 @@ class Parser:
 
   def p_subroutine_declaration(self, p):
     '''subroutine_declaration : procedure_declaration
-                                | function_declaration'''
+                              | function_declaration'''
     p[0] = p[1]
 
   def p_procedure_declaration(self, p):
     '''procedure_declaration : PROCEDURE identifier formal_parameters SEMICOLON subroutine_block
-                              | PROCEDURE identifier SEMICOLON subroutine_block'''
+                             | PROCEDURE identifier SEMICOLON subroutine_block'''
     if len(p) == 6:
         p[0] = (ast.PROCEDURE, p[2], p[3], p[5])
     else:
@@ -81,7 +80,7 @@ class Parser:
 
   def p_function_declaration(self, p):
     '''function_declaration : FUNCTION identifier formal_parameters COLON type SEMICOLON subroutine_block
-                              | FUNCTION identifier COLON type SEMICOLON subroutine_block'''
+                            | FUNCTION identifier COLON type SEMICOLON subroutine_block'''
     if len(p) == 8:
         p[0] = (ast.FUNCTION, p[2], p[3], p[5], p[7])
     else:
@@ -249,51 +248,54 @@ class Parser:
   def p_number(self, p):
     '''number : NUMBER'''
     p[0] = (ast.NUM, p[1])
+  
+  def _emit_op_expected(self, op, expected, lineno):
+    print(f"Operador '{op}' deve ser seguido de um <{expected}>. Linha {lineno}.")
+    self.parser.errok()
 
   def p_simple_expression_plus_error(self, p):
     'simple_expression : simple_expression PLUS error term'
-    print(f"Operador inesperado após '+'. Esperava um <fator> (variável, número ou '(' expressão ')'). "
-          f"Linha {p.lineno(3)}.")
-    self.has_error = True
-    self.parser.errok()
+    self._emit_op_expected('+', 'termo', p.lineno(3))
 
   def p_simple_expression_minus_error(self, p):
     'simple_expression : simple_expression MINUS error term'
-    print(f"Operador inesperado após '-'. Esperava um <fator>. Linha {p.lineno(3)}.")
-    self.has_error = True
-    self.parser.errok()
+    self._emit_op_expected('-', 'termo', p.lineno(3))
 
   def p_simple_expression_or_error(self, p):
     'simple_expression : simple_expression OR error term'
-    print(f"Operador 'or' deve ser seguido de um <fator>. Linha {p.lineno(3)}.")
-    self.has_error = True
-    self.parser.errok()
+    self._emit_op_expected('or', 'termo', p.lineno(3))
 
   def p_term_mult_error(self, p):
     'term : term MULT error factor'
-    print(f"Operador '*' deve ser seguido de um <fator>. Linha {p.lineno(3)}.")
-    self.has_error = True
-    self.parser.errok()
-
+    self._emit_op_expected('*', 'fator', p.lineno(3))
+     
   def p_term_div_error(self, p):
     'term : term DIV error factor'
-    print(f"Operador '/' deve ser seguido de um <fator>. Linha {p.lineno(3)}.")
-    self.has_error = True
-    self.parser.errok()
+    self._emit_op_expected('/', 'fator', p.lineno(3))
 
   def p_term_and_error(self, p):
     'term : term AND error factor'
-    print(f"Operador 'and' deve ser seguido de um <fator>. Linha {p.lineno(3)}.")
-    self.has_error = True
+    self._emit_op_expected('and', 'fator', p.lineno(3))
+
+  def p_block_double_var_error(self, p):
+    'var_declaration_section : VAR error'
+    print(f"Palavra-chave 'var' inesperada. "
+          f"A gramática só permite uma <var_declaration_section>. "
+          f"Linha {p.lineno(2)}.")
+    
+    p[0] = p[1]
     self.parser.errok()
 
   def p_error(self, p):
     if p:
-        print(f"Erro sintático: token inesperado '{p.value}' (tipo {p.type}) na linha {p.lineno}")
+      print(f"Erro sintático: token inesperado '{p.value}' (tipo {p.type}) na linha {p.lineno}")
+      if p.type == 'END':
+        print(f"Token 'end' inesperado. Não deveria haver o ';' no último comando. Linha {p.lineno}")
+      if p.type in ('FUNCTION', 'PROCEDURE'):
+        print(f"Subrotinas aninhadas não são permitidas. Linha {p.lineno}")
     else:
-        print("Erro sintático: fim inesperado do arquivo (EOF)")
-
-    self.has_error = True
+      print("Erro sintático: fim inesperado do arquivo (EOF)")
+      print(f"Parser esperava o token '.' para finalizar o programa. Linha {self.lexer.lexer.lineno}")
 
   def parse(self, source: str):
     return self.parser.parse(source, lexer=self.lexer.lexer)
