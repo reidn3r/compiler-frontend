@@ -251,7 +251,6 @@ class Parser:
   
   def _emit_op_expected(self, op, expected, lineno):
     print(f"Operador '{op}' deve ser seguido de um <{expected}>. Linha {lineno}.")
-    self.parser.errok()
 
   def p_simple_expression_plus_error(self, p):
     '''simple_expression : simple_expression PLUS error term'''
@@ -284,28 +283,24 @@ class Parser:
           f"Linha {p.lineno(2)}.")
     
     p[0] = p[1]
-    self.parser.errok()
 
   def p_nested_subroutine(self, p):
     '''subroutine_block : var_declaration_section FUNCTION
                         | var_declaration_section PROCEDURE'''
     print(f"Erro sintático: token inesperado '{p[2]}' (tipo {p.slice[2].type}) na linha {p.lineno(2)}")
     print(f"Subrotinas aninhadas não são permitidas. Linha {p.lineno(2)}")
-    self.parser.errok()
     raise SyntaxError
 
   def p_trailing_semicolon(self, p):
     '''compound_statement : BEGIN statement_list SEMICOLON END'''
     print(f"Erro sintático: token inesperado '{p[4]}' (tipo {p.slice[4].type}) na linha {p.lineno(4)}")
     print(f"Token 'end' inesperado. Não deveria haver o ';' no último comando. Linha {p.lineno(4)}")
-    self.parser.errok()
     raise SyntaxError
   
   def p_no_parameters_subroutine(self, p):
     '''formal_parameters : LPAREN RPAREN'''
     print(f"Erro sintático: token inesperado '{p[2]}' (tipo {p.slice[2].type}) na linha {p.lineno(2)}")
     print(f"Não deveria haver o '()' em subrotinas sem parâmetros. Linha {p.lineno(2)}")
-    self.parser.errok()
     raise SyntaxError
 
   def p_error(self, p):
