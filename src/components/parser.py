@@ -1,15 +1,22 @@
 import ply.yacc as yacc
 from src.components.lexer import Lexer
 import src.components.ast as ast
+import src.components.symbol as symbol
 
 class Parser:
   def __init__(self):
     self.lexer = Lexer()
     self.tokens = self.lexer.tokens
     self.parser = yacc.yacc(module=self)
+    self.symbolsTable: dict[str, symbol.Symbol] = {}
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
+    identifier = p[2]
+    self.symbolsTable[identifier] = {
+      "scope": symbol.Scope.GLOBAL,
+      "category": symbol.Category.PROGRAM,
+    }
     p[0] = (ast.PROGRAM, p[2], p[4])
 
   def p_block(self, p):
