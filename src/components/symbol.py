@@ -24,7 +24,7 @@ class Symbol(TypedDict, total=False):
 # Syntax Directed Translation
 # Type (e.g. integer, bool)
 # Category (e.g. program, variable, function, procedure, parameter)
-# Scope (e.g. )
+# Scope (e.g. global, subroutine)
 
 # Programa:
 # Sequência de comandos mandatória

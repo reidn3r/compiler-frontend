@@ -284,7 +284,7 @@ class Parser:
     self._emit_op_expected('and', 'fator', p.lineno(3))
 
   def p_block_double_var_error(self, p):
-    '''var_declaration_section : VAR error'''
+    '''var_declaration_section : VAR error SEMICOLON'''
     print(f"Palavra-chave 'var' inesperada. "
           f"A gramática só permite uma <var_declaration_section>. "
           f"Linha {p.lineno(2)}.")
