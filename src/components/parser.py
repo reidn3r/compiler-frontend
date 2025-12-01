@@ -228,6 +228,7 @@ class Parser:
     key = self._build_key(identifier)
     if key not in self.symbolsTable:
       self._semantic_error(f"Identificador '{identifier}' não declarado.", p.lineno(2))
+      return
     
     symbol = self.symbolsTable[key]
     expression = p[3]
@@ -396,11 +397,12 @@ class Parser:
     '''variable : identifier'''
     identifier = p[1]
     key = self._build_key(identifier)
-    type = self.symbolsTable[key]["type"]
-    p[0] = {
-      "type": type,
-      "node": (ast.VAR, p[1]),
-    }
+    if key in self.symbolsTable:
+      type = self.symbolsTable[key]["type"]
+      p[0] = {
+        "type": type,
+        "node": (ast.VAR, p[1]),
+      }
 
   def p_boolean(self, p):
     '''boolean : FALSE
@@ -415,17 +417,18 @@ class Parser:
                      | identifier LPAREN RPAREN'''
     identifier = p[1]
     key = self._build_key(identifier)
-    type = self.symbolsTable[key]["type"]
-    if len(p) == 5:
-      p[0] = {
-        "type": type,
-        "node": (ast.FUNC_CALL, p[1], p[3]),
-      }
-    else:
-      p[0] = {
-        "type": type,
-        "node": (ast.FUNC_CALL, p[1], None),
-      }
+    if key in self.symbolsTable:
+      type = self.symbolsTable[key]["type"]
+      if len(p) == 5:
+        p[0] = {
+          "type": type,
+          "node": (ast.FUNC_CALL, p[1], p[3]),
+        }
+      else:
+        p[0] = {
+          "type": type,
+          "node": (ast.FUNC_CALL, p[1], None),
+        }
 
   def p_identifier(self, p):
     '''identifier : ID'''
