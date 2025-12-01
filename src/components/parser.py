@@ -10,10 +10,13 @@ class Parser:
     self.tokens = self.lexer.tokens
     self.parser = yacc.yacc(module=self)
     self.symbolsTable: dict[str, symbol.Symbol] = {}
+    self.scope = symbol.Scope.GLOBAL
+
+  def _is_redeclaration(self, id):
+    return id in self.symbolsTable and self.symbolsTable[id]["scope"] == self.scope
 
   def _semantic_error(self, msg, line):
     print(f"Erro Semântico: {msg} (Linha {line})")
-    sys.exit(1)
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
@@ -21,9 +24,9 @@ class Parser:
 
     self.symbolsTable[identifier] = {
       "category": symbol.Category.PROGRAM,
-      "scope": symbol.Scope.GLOBAL,
+      "scope": self.scope,
     }
-
+    
     p[0] = (ast.PROGRAM, p[2], p[4])
 
   def p_block(self, p):
@@ -56,14 +59,14 @@ class Parser:
     type = p[3]
 
     for identifier in identifier_list:
-      if identifier not in self.symbolsTable:
+      if self._is_redeclaration(identifier):
+        self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+      else:
         self.symbolsTable[identifier] = {
           "type": symbol.Type(type),
           "category": symbol.Category.VARIABLE,
-          "scope": symbol.Scope.GLOBAL,
+          "scope": self.scope,
         }
-      else:
-        self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
 
     p[0] = (ast.VAR_DECL, p[1], p[3])
 
@@ -98,40 +101,46 @@ class Parser:
     p[0] = p[1]
 
   def p_procedure_declaration(self, p):
-    '''procedure_declaration : PROCEDURE identifier formal_parameters SEMICOLON subroutine_block
-                             | PROCEDURE identifier SEMICOLON subroutine_block'''
+    '''procedure_declaration : PROCEDURE identifier local_scope formal_parameters SEMICOLON subroutine_block
+                             | PROCEDURE identifier SEMICOLON local_scope subroutine_block'''
+    self.scope = symbol.Scope.GLOBAL
     identifier = p[2]
-    if identifier not in self.symbolsTable:
+    if self._is_redeclaration(identifier):
+      self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+    else:
       self.symbolsTable[identifier] = {
         "category": symbol.Category.PROCEDURE,
-        "scope": symbol.Scope.GLOBAL,
+        "scope": self.scope,
       }
-    else:
-      self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
 
-    if len(p) == 6:
-        p[0] = (ast.PROCEDURE, p[2], p[3], p[5])
+    if len(p) == 7:
+        p[0] = (ast.PROCEDURE, p[2], p[4], p[6])
     else:
-        p[0] = (ast.PROCEDURE, p[2], None, p[4])
+        p[0] = (ast.PROCEDURE, p[2], None, p[5])
 
   def p_function_declaration(self, p):
-    '''function_declaration : FUNCTION identifier formal_parameters COLON type SEMICOLON subroutine_block
-                            | FUNCTION identifier COLON type SEMICOLON subroutine_block'''
+    '''function_declaration : FUNCTION identifier local_scope formal_parameters COLON type SEMICOLON subroutine_block
+                            | FUNCTION identifier COLON type SEMICOLON local_scope subroutine_block'''
+    self.scope = symbol.Scope.GLOBAL
     identifier = p[2]
-    type = p[5] if len(p) == 8 else p[4]
-    if identifier not in self.symbolsTable:
+    type = p[6] if len(p) == 9 else p[4]
+    if self._is_redeclaration(identifier):
+      self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+    else:
       self.symbolsTable[identifier] = {
         "type": symbol.Type(type),
         "category": symbol.Category.PROCEDURE,
-        "scope": symbol.Scope.GLOBAL,
+        "scope": self.scope,
       }
-    else:
-      self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
 
     if len(p) == 8:
-        p[0] = (ast.FUNCTION, p[2], p[3], p[5], p[7])
+        p[0] = (ast.FUNCTION, p[2], p[4], p[6], p[8])
     else:
-        p[0] = (ast.FUNCTION, p[2], None, p[4], p[6])
+        p[0] = (ast.FUNCTION, p[2], None, p[4], p[7])
+
+  def p_local_scope(self, p):
+    "local_scope :"
+    self.scope = symbol.Scope.SUBROUTINE
 
   def p_subroutine_block(self, p):
     '''subroutine_block : var_declaration_section compound_statement
