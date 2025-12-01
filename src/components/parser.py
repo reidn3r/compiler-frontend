@@ -1,4 +1,3 @@
-import sys
 import ply.yacc as yacc
 from src.components.lexer import Lexer
 import src.components.ast as ast
@@ -9,11 +8,11 @@ class Parser:
     self.lexer = Lexer()
     self.tokens = self.lexer.tokens
     self.parser = yacc.yacc(module=self)
-    self.symbolsTable: dict[str, symbol.Symbol] = {}
+    self.symbolsTable: dict[tuple[str, symbol.Scope], symbol.Symbol] = {}
     self.scope = symbol.Scope.GLOBAL
 
-  def _is_redeclaration(self, id):
-    return id in self.symbolsTable and self.symbolsTable[id]["scope"] == self.scope
+  def _build_key(self, id) -> tuple[str, symbol.Scope]:
+    return (id, self.scope)
 
   def _semantic_error(self, msg, line):
     print(f"Erro Semântico: {msg} (Linha {line})")
@@ -59,10 +58,11 @@ class Parser:
     type = p[3]
 
     for identifier in identifier_list:
-      if self._is_redeclaration(identifier):
-        self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+      key = self._build_key(identifier)
+      if key in self.symbolsTable:
+        self._semantic_error(f"Identificador '{identifier}' já declarado neste escopo.", p.lineno(2))
       else:
-        self.symbolsTable[identifier] = {
+        self.symbolsTable[key] = {
           "type": symbol.Type(type),
           "category": symbol.Category.VARIABLE,
           "scope": self.scope,
@@ -105,10 +105,11 @@ class Parser:
                              | PROCEDURE identifier SEMICOLON local_scope subroutine_block'''
     self.scope = symbol.Scope.GLOBAL
     identifier = p[2]
-    if self._is_redeclaration(identifier):
-      self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+    key = self._build_key(identifier)
+    if key in self.symbolsTable:
+      self._semantic_error(f"Identificador '{identifier}' já declarado neste escopo.", p.lineno(2))
     else:
-      self.symbolsTable[identifier] = {
+      self.symbolsTable[key] = {
         "category": symbol.Category.PROCEDURE,
         "scope": self.scope,
       }
@@ -124,12 +125,13 @@ class Parser:
     self.scope = symbol.Scope.GLOBAL
     identifier = p[2]
     type = p[6] if len(p) == 9 else p[4]
-    if self._is_redeclaration(identifier):
-      self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+    key = self._build_key(identifier)
+    if key in self.symbolsTable:
+      self._semantic_error(f"Identificador '{identifier}' já declarado neste escopo.", p.lineno(2))
     else:
-      self.symbolsTable[identifier] = {
+      self.symbolsTable[key] = {
         "type": symbol.Type(type),
-        "category": symbol.Category.PROCEDURE,
+        "category": symbol.Category.FUNCTION,
         "scope": self.scope,
       }
 

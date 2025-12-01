@@ -13,8 +13,8 @@ def main():
   parser = Parser()
   ast = parser.parse(buffer)
   
-  if ast:
-    pprint.pprint(ast)
+  #if ast:
+    #pprint.pprint(ast)
 
 if __name__ == "__main__":
   main()
