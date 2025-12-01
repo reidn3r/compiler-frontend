@@ -1,3 +1,4 @@
+import sys
 import ply.yacc as yacc
 from src.components.lexer import Lexer
 import src.components.ast as ast
@@ -10,13 +11,19 @@ class Parser:
     self.parser = yacc.yacc(module=self)
     self.symbolsTable: dict[str, symbol.Symbol] = {}
 
+  def _semantic_error(self, msg, line):
+    print(f"Erro Semântico: {msg} (Linha {line})")
+    sys.exit(1)
+
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
     identifier = p[2]
+
     self.symbolsTable[identifier] = {
-      "scope": symbol.Scope.GLOBAL,
       "category": symbol.Category.PROGRAM,
+      "scope": symbol.Scope.GLOBAL,
     }
+
     p[0] = (ast.PROGRAM, p[2], p[4])
 
   def p_block(self, p):
@@ -45,6 +52,19 @@ class Parser:
 
   def p_var_declaration(self, p):
     '''var_declaration : identifier_list COLON type'''
+    identifier_list = p[1]
+    type = p[3]
+
+    for identifier in identifier_list:
+      if identifier not in self.symbolsTable:
+        self.symbolsTable[identifier] = {
+          "type": symbol.Type(type),
+          "category": symbol.Category.VARIABLE,
+          "scope": symbol.Scope.GLOBAL,
+        }
+      else:
+        self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+
     p[0] = (ast.VAR_DECL, p[1], p[3])
 
   def p_identifier_list(self, p):
@@ -80,6 +100,15 @@ class Parser:
   def p_procedure_declaration(self, p):
     '''procedure_declaration : PROCEDURE identifier formal_parameters SEMICOLON subroutine_block
                              | PROCEDURE identifier SEMICOLON subroutine_block'''
+    identifier = p[2]
+    if identifier not in self.symbolsTable:
+      self.symbolsTable[identifier] = {
+        "category": symbol.Category.PROCEDURE,
+        "scope": symbol.Scope.GLOBAL,
+      }
+    else:
+      self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+
     if len(p) == 6:
         p[0] = (ast.PROCEDURE, p[2], p[3], p[5])
     else:
@@ -88,6 +117,17 @@ class Parser:
   def p_function_declaration(self, p):
     '''function_declaration : FUNCTION identifier formal_parameters COLON type SEMICOLON subroutine_block
                             | FUNCTION identifier COLON type SEMICOLON subroutine_block'''
+    identifier = p[2]
+    type = p[5] if len(p) == 8 else p[4]
+    if identifier not in self.symbolsTable:
+      self.symbolsTable[identifier] = {
+        "type": symbol.Type(type),
+        "category": symbol.Category.PROCEDURE,
+        "scope": symbol.Scope.GLOBAL,
+      }
+    else:
+      self._semantic_error(f"Identificador '{identifier}' já declarado.", p.lineno(2))
+
     if len(p) == 8:
         p[0] = (ast.FUNCTION, p[2], p[3], p[5], p[7])
     else:

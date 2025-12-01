@@ -2,8 +2,8 @@ from enum import Enum, auto
 from typing import TypedDict
 
 class Type(Enum):
-  INTEGER = auto()
-  BOOLEAN = auto()
+  INTEGER = 'integer'
+  BOOLEAN = 'boolean'
 
 class Category(Enum):
   PROGRAM = auto()
