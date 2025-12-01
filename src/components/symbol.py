@@ -12,12 +12,10 @@ class Category(Enum):
   PROCEDURE = auto()
   PARAMETER = auto()
 
-class Scope(Enum):
-  GLOBAL = auto()
-  SUBROUTINE = auto()
+GLOBAL_SCOPE = "global"
 
 class Symbol(TypedDict, total=False):
   id: str
   type: Type
   category: Category
-  scope: Scope
+  scope: str

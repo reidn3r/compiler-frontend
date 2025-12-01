@@ -8,10 +8,10 @@ class Parser:
     self.lexer = Lexer()
     self.tokens = self.lexer.tokens
     self.parser = yacc.yacc(module=self)
-    self.symbolsTable: dict[tuple[str, symbol.Scope], symbol.Symbol] = {}
-    self.scope = symbol.Scope.GLOBAL
+    self.symbolsTable: dict[tuple[str, str], symbol.Symbol] = {}
+    self.scope = symbol.GLOBAL_SCOPE
 
-  def _build_key(self, id) -> tuple[str, symbol.Scope]:
+  def _build_key(self, id) -> tuple[str, str]:
     return (id, self.scope)
 
   def _semantic_error(self, msg, line):
@@ -60,6 +60,7 @@ class Parser:
     for identifier in identifier_list:
       key = self._build_key(identifier)
       if key in self.symbolsTable:
+        print("brugi")
         self._semantic_error(f"Identificador '{identifier}' já declarado neste escopo.", p.lineno(2))
       else:
         self.symbolsTable[key] = {
@@ -102,8 +103,8 @@ class Parser:
 
   def p_procedure_declaration(self, p):
     '''procedure_declaration : PROCEDURE identifier local_scope formal_parameters SEMICOLON subroutine_block
-                             | PROCEDURE identifier SEMICOLON local_scope subroutine_block'''
-    self.scope = symbol.Scope.GLOBAL
+                             | PROCEDURE identifier local_scope SEMICOLON subroutine_block'''
+    self.scope = symbol.GLOBAL_SCOPE
     identifier = p[2]
     key = self._build_key(identifier)
     if key in self.symbolsTable:
@@ -117,14 +118,14 @@ class Parser:
     if len(p) == 7:
         p[0] = (ast.PROCEDURE, p[2], p[4], p[6])
     else:
-        p[0] = (ast.PROCEDURE, p[2], None, p[5])
+        p[0] = (ast.PROCEDURE, p[2], p[5])
 
   def p_function_declaration(self, p):
-    '''function_declaration : FUNCTION identifier local_scope formal_parameters COLON type SEMICOLON subroutine_block
-                            | FUNCTION identifier COLON type SEMICOLON local_scope subroutine_block'''
-    self.scope = symbol.Scope.GLOBAL
+    '''function_declaration : FUNCTION identifier local_scope formal_parameters COLON type prepare_return SEMICOLON subroutine_block
+                            | FUNCTION identifier local_scope COLON type prepare_return SEMICOLON subroutine_block'''
+    self.scope = symbol.GLOBAL_SCOPE
     identifier = p[2]
-    type = p[6] if len(p) == 9 else p[4]
+    type = p[6] if len(p) == 10 else p[5]
     key = self._build_key(identifier)
     if key in self.symbolsTable:
       self._semantic_error(f"Identificador '{identifier}' já declarado neste escopo.", p.lineno(2))
@@ -135,14 +136,32 @@ class Parser:
         "scope": self.scope,
       }
 
-    if len(p) == 8:
-        p[0] = (ast.FUNCTION, p[2], p[4], p[6], p[8])
+    if len(p) == 10:
+        p[0] = (ast.FUNCTION, p[2], p[4], p[6], p[9])
     else:
-        p[0] = (ast.FUNCTION, p[2], None, p[4], p[7])
+        p[0] = (ast.FUNCTION, p[2], p[5], p[8])
 
   def p_local_scope(self, p):
     "local_scope :"
-    self.scope = symbol.Scope.SUBROUTINE
+    identifier = p[-1]
+    self.scope = identifier
+    if p[-2] != 'function':
+      return
+    # Add the function id inside the subroutine scope
+    key = self._build_key(identifier)
+    self.symbolsTable[key] = {
+      "category": symbol.Category.FUNCTION,
+      "scope": self.scope,
+    }
+
+  def p_prepare_return(self, p):
+    "prepare_return :"
+    # Add type to the local function symbol
+    functionId = p[-5] if p[-4] is None else p[-4]
+    type = p[-1]
+    key = self._build_key(functionId)
+    if key in self.symbolsTable:
+      self.symbolsTable[key]["type"] = symbol.Type(type)
 
   def p_subroutine_block(self, p):
     '''subroutine_block : var_declaration_section compound_statement
@@ -166,6 +185,19 @@ class Parser:
 
   def p_parameter_declaration(self, p):
     '''parameter_declaration : identifier_list COLON type'''
+    identifier_list = p[1]
+    type = p[3]
+
+    for identifier in identifier_list:
+      key = self._build_key(identifier)
+      if key in self.symbolsTable:
+        self._semantic_error(f"Identificador '{identifier}' já declarado neste escopo.", p.lineno(2))
+      else:
+        self.symbolsTable[key] = {
+          "type": symbol.Type(type),
+          "category": symbol.Category.PARAMETER,
+          "scope": self.scope,
+        }
     p[0] = (ast.PARAMETER, p[1], p[3])
 
   def p_compound_statement(self, p):
@@ -192,6 +224,18 @@ class Parser:
 
   def p_assignment(self, p):
     '''assignment : identifier ASSIGN expression'''
+    identifier = p[1]
+    key = self._build_key(identifier)
+    if key not in self.symbolsTable:
+      self._semantic_error(f"Identificador '{identifier}' não declarado.", p.lineno(2))
+    
+    symbol = self.symbolsTable[key]
+    expression = p[3]
+    if symbol["type"] != expression["type"]:
+      self._semantic_error(
+        f"A expressão à direita deve possuir o mesmo tipo da varíavel à esquerda", p.lineno(2)
+      )
+
     p[0] = (ast.ASSIGN, p[1], p[3])
 
   def p_procedure_call(self, p):
@@ -234,9 +278,12 @@ class Parser:
     '''expression : simple_expression relational_op simple_expression
                   | simple_expression'''
     if len(p) == 4:
-        p[0] = (ast.BINARY_OP, p[1], p[2], p[3])
+      p[0] = {
+        "type": symbol.Type.BOOLEAN,
+        "node": (ast.BINARY_OP, p[1], p[2], p[3]),
+      }
     else:
-        p[0] = p[1]
+      p[0] = p[1]
 
   def p_relational_op(self, p):
     '''relational_op : EQ
@@ -253,9 +300,31 @@ class Parser:
                          | simple_expression MINUS term
                          | simple_expression OR term'''
     if len(p) == 2:
-        p[0] = p[1]
+      p[0] = p[1]
     else:
-        p[0] = (ast.BINARY_OP, p[1], p[2], p[3])
+      left = p[1]
+      op = p[2]
+      right = p[3]
+      if op == '+' or op == '-':
+        if left["type"] == symbol.Type.INTEGER and right["type"] == symbol.Type.INTEGER:
+          p[0] = {
+            "type": symbol.Type.INTEGER,
+            "node": (ast.BINARY_OP, p[1], p[2], p[3])
+          }
+        else:
+          self._semantic_error(
+            f"Operandos de expressão aritmética devem ser do tipo inteiro", p.lineno(2)
+          )
+      else:
+        if left["type"] == symbol.Type.BOOLEAN and right["type"] == symbol.Type.BOOLEAN:
+          p[0] = {
+            "type": symbol.Type.BOOLEAN,
+            "node": (ast.BINARY_OP, p[1], p[2], p[3])
+          }
+        else:
+          self._semantic_error(
+            f"Operandos de expressão lógica devem ser do tipo booleano", p.lineno(2)
+          )
 
   def p_term(self, p):
     '''term : factor
@@ -265,7 +334,29 @@ class Parser:
     if len(p) == 2:
         p[0] = p[1]
     else:
-        p[0] = (ast.BINARY_OP, p[1], p[2], p[3])
+      left = p[1]
+      op = p[2]
+      right = p[3]
+      if op == '*' or op == 'div':
+        if left["type"] == symbol.Type.INTEGER and right["type"] == symbol.Type.INTEGER:
+          p[0] = {
+            "type": symbol.Type.INTEGER,
+            "node": (ast.BINARY_OP, p[1], p[2], p[3])
+          }
+        else:
+          self._semantic_error(
+            f"Operandos de expressão aritmética devem ser do tipo inteiro", p.lineno(2)
+          )
+      else:
+        if left["type"] == symbol.Type.BOOLEAN and right["type"] == symbol.Type.BOOLEAN:
+          p[0] = {
+            "type": symbol.Type.BOOLEAN,
+            "node": (ast.BINARY_OP, p[1], p[2], p[3])
+          }
+        else:
+          self._semantic_error(
+            f"Operandos de expressão lógica devem ser do tipo booleano", p.lineno(2)
+          )
 
   def p_factor(self, p):
     '''factor : variable
@@ -278,26 +369,63 @@ class Parser:
     if len(p) == 2:
         p[0] = p[1]
     elif len(p) == 3:
-        p[0] = (ast.UNARY_OP, p[1], p[2])
+        if p[1] == 'not':
+          if p[2]["type"] == symbol.Type.BOOLEAN:
+            p[0] = {
+              "type": symbol.Type.BOOLEAN,
+              "node": (ast.UNARY_OP, p[1], p[2]),
+            }
+          else:
+            self._semantic_error(
+              f"Operandos de expressão lógica devem ser do tipo booleano", p.lineno(2)
+            )
+        else:
+          if p[2]["type"] == symbol.Type.INTEGER:
+            p[0] = {
+              "type": symbol.Type.INTEGER,
+              "node": (ast.UNARY_OP, p[1], p[2]),
+            }
+          else:
+            self._semantic_error(
+              f"Operandos de expressão aritmética devem ser do tipo inteiro", p.lineno(2)
+            )
     else:
         p[0] = p[2]
 
   def p_variable(self, p):
     '''variable : identifier'''
-    p[0] = (ast.VAR, p[1])
+    identifier = p[1]
+    key = self._build_key(identifier)
+    type = self.symbolsTable[key]["type"]
+    p[0] = {
+      "type": type,
+      "node": (ast.VAR, p[1]),
+    }
 
   def p_boolean(self, p):
     '''boolean : FALSE
                | TRUE'''
-    p[0] = (ast.BOOL, p[1])
+    p[0] = {
+      "type": symbol.Type.BOOLEAN,
+      "node": (ast.BOOL, p[1]),
+    }
 
   def p_function_call(self, p):
     '''function_call : identifier LPAREN expression_list RPAREN
                      | identifier LPAREN RPAREN'''
+    identifier = p[1]
+    key = self._build_key(identifier)
+    type = self.symbolsTable[key]["type"]
     if len(p) == 5:
-      p[0] = (ast.FUNC_CALL, p[1], p[3])
+      p[0] = {
+        "type": type,
+        "node": (ast.FUNC_CALL, p[1], p[3]),
+      }
     else:
-      p[0] = (ast.FUNC_CALL, p[1], None)
+      p[0] = {
+        "type": type,
+        "node": (ast.FUNC_CALL, p[1], None),
+      }
 
   def p_identifier(self, p):
     '''identifier : ID'''
@@ -305,7 +433,10 @@ class Parser:
 
   def p_number(self, p):
     '''number : NUMBER'''
-    p[0] = (ast.NUM, p[1])
+    p[0] = {
+      "type": symbol.Type.INTEGER,
+      "node": (ast.NUM, p[1]),
+    }
   
   def _emit_op_expected(self, op, expected, lineno):
     print(f"Operador '{op}' deve ser seguido de um <{expected}>. Linha {lineno}.")
