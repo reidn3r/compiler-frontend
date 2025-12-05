@@ -60,7 +60,6 @@ class Parser:
     for identifier in identifier_list:
       key = self._build_key(identifier)
       if key in self.symbolsTable:
-        print("brugi")
         self._semantic_error(f"Identificador '{identifier}' já declarado neste escopo.", p.lineno(2))
       else:
         self.symbolsTable[key] = {
@@ -250,6 +249,10 @@ class Parser:
   def p_conditional(self, p):
     '''conditional : IF expression THEN statement ELSE statement
                    | IF expression THEN statement'''
+    expression = p[2]
+    if expression["type"] != symbol.Type.BOOLEAN:
+      self._semantic_error(f"Expressão em condicional deve ser do tipo booleano", p.lineno(1))
+    
     if len(p) == 7:
         p[0] = (ast.IF, p[2], p[4], p[6])
     else:
@@ -257,6 +260,10 @@ class Parser:
 
   def p_repetition(self, p):
     '''repetition : WHILE expression DO statement'''
+    expression = p[2]
+    if expression["type"] != symbol.Type.BOOLEAN:
+      self._semantic_error(f"Expressão em repetição deve ser do tipo booleano", p.lineno(1))
+
     p[0] = (ast.WHILE, p[2], p[4])
 
   def p_read_statement(self, p):
