@@ -6,9 +6,9 @@ class ASTNode:
     self.type = None
 
 class Program(ASTNode):
-  def __init__(self, name, block, line):
+  def __init__(self, id, block, line):
     super().__init__(line)
-    self.name = name
+    self.id = id
     self.block = block
 
 class Block(ASTNode):
@@ -35,9 +35,9 @@ class CommandSeq(ASTNode):
     self.statements = statements
 
 class Assignment(ASTNode):
-  def __init__(self, name, expr, line):
+  def __init__(self, id, expr, line):
     super().__init__(line)
-    self.name = name
+    self.id = id
     self.expr = expr
 
 class UnaryOp(ASTNode):
@@ -82,16 +82,16 @@ class SubroutineSection(ASTNode):
     self.declarations = declarations
 
 class ProcedureDeclaration(ASTNode):
-  def __init__(self, name, parameters, body, line):
+  def __init__(self, id, parameters, body, line):
     super().__init__(line)
-    self.name = name
+    self.id = id
     self.parameters = parameters
     self.body = body
 
 class FunctionDeclaration(ASTNode):
-  def __init__(self, name, parameters, return_type, body, line):
+  def __init__(self, id, parameters, return_type, body, line):
     super().__init__(line)
-    self.name = name
+    self.id = id
     self.parameters = parameters
     self.return_type = return_type
     self.body = body
@@ -109,22 +109,22 @@ class SubroutineBlock(ASTNode):
     self.body = body
 
 class ProcedureCall(ASTNode):
-  def __init__(self, name, args, line):
+  def __init__(self, id, args, line):
     super().__init__(line)
-    self.name = name
+    self.id = id
     self.args = args or []
 
 class FunctionCall(ASTNode):
-  def __init__(self, name, args, line, return_type=None):
+  def __init__(self, id, args, line, return_type=None):
     super().__init__(line)
-    self.name = name
+    self.id = id
     self.args = args or []
     self.type = return_type
 
 class Variable(ASTNode):
-  def __init__(self, name, line, var_type=None):
+  def __init__(self, id, line, var_type=None):
     super().__init__(line)
-    self.name = name
+    self.id = id
     self.type = var_type
 
 class BooleanLiteral(ASTNode):

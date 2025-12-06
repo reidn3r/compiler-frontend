@@ -1,9 +1,12 @@
+from typing import Dict, Tuple
 import src.components.ast as ast
 import src.components.symbol as symbol
 
+SymbolTable = Dict[Tuple[str, str], symbol.Symbol]
+
 class SemanticService:
   def __init__(self):
-    self.symbolsTable: dict[tuple[str, str], symbol.Symbol] = {}
+    self.symbolsTable: SymbolTable = {}
     self.scope = symbol.GLOBAL_SCOPE
 
   def set_scope(self, scope):
@@ -15,13 +18,13 @@ class SemanticService:
   def print_error(self, msg, line):
     print(f"Erro semântico: {msg} (Linha {line})")
 
-  def build_key(self, name):
-    return (name, self.scope)
+  def build_key(self, identifier):
+    return (identifier, self.scope)
 
-  def declare(self, name: str, category: symbol.Category, type=None, param_types=None, param_count=None, line=-1):
-    key = self.build_key(name)
+  def declare(self, identifier: str, category: symbol.Category, type=None, param_types=None, param_count=None, line=-1):
+    key = self.build_key(identifier)
     if key in self.symbolsTable:
-      self.print_error(f"Identificador '{name}' já declarado neste escopo.", line)
+      self.print_error(f"Identificador '{identifier}' já declarado neste escopo.", line)
       return False
     entry = {
       "category": category,

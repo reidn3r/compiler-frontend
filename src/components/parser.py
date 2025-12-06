@@ -2,7 +2,7 @@ import ply.yacc as yacc
 from src.components.lexer import Lexer
 import src.components.ast as ast
 import src.components.symbol as symbol
-from src.components.semantic_service import SemanticService
+from src.components.semantic_service import SemanticService, SymbolTable
 
 class Parser:
   def __init__(self):
@@ -13,14 +13,14 @@ class Parser:
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
-    name = p[2]
+    identifier = p[2]
     self.semanticService.declare(
-      name=name,
+      identifier=identifier,
       type=None,
       category=symbol.Category.PROGRAM,
       line=p.lineno(1)
     )
-    p[0] = ast.Program(name, p[4], p.lineno(1))
+    p[0] = ast.Program(self.semanticService.build_key(identifier), p[4], p.lineno(1))
 
   def p_block(self, p):
     '''block : var_declaration_section subroutine_declaration_section compound_statement
@@ -56,7 +56,7 @@ class Parser:
 
     for ident in ids:
       self.semanticService.declare(
-        name=ident,
+        identifier=ident,
         type=symbol.Type(t),
         category=symbol.Category.VARIABLE,
         line=p.lineno(2)
@@ -99,7 +99,7 @@ class Parser:
                              | PROCEDURE identifier local_scope SEMICOLON subroutine_block'''
     hasParams = len(p) == 7
     self.semanticService.set_scope(symbol.GLOBAL_SCOPE)
-    name = p[2]
+    identifier = p[2]
     if hasParams:
       params = p[4]
       param_types = []
@@ -114,7 +114,7 @@ class Parser:
       param_count = 0
 
     self.semanticService.declare(
-      name=name,
+      identifier=identifier,
       type=None,
       category=symbol.Category.PROCEDURE,
       param_types=param_types,
@@ -123,16 +123,16 @@ class Parser:
     )
 
     if hasParams:
-      p[0] = ast.ProcedureDeclaration(name, p[4], p[6], p.lineno(1))
+      p[0] = ast.ProcedureDeclaration(self.semanticService.build_key(identifier), p[4], p[6], p.lineno(1))
     else:
-      p[0] = ast.ProcedureDeclaration(name, None, p[5], p.lineno(1))
+      p[0] = ast.ProcedureDeclaration(self.semanticService.build_key(identifier), None, p[5], p.lineno(1))
 
   def p_function_declaration(self, p):
     '''function_declaration : FUNCTION identifier local_scope formal_parameters COLON type prepare_return SEMICOLON subroutine_block
                             | FUNCTION identifier local_scope COLON type prepare_return SEMICOLON subroutine_block'''
     hasParams = len(p) == 10
     self.semanticService.set_scope(symbol.GLOBAL_SCOPE)
-    name = p[2]
+    identifier = p[2]
     ret_type = p[6] if hasParams else p[5]
 
     if hasParams and p[4] is not None:
@@ -149,7 +149,7 @@ class Parser:
       param_count = None
 
     self.semanticService.declare(
-      name=name,
+      identifier=identifier,
       type=symbol.Type(ret_type),
       category=symbol.Category.FUNCTION,
       param_types=param_types,
@@ -158,18 +158,18 @@ class Parser:
     )
 
     if hasParams:
-      p[0] = ast.FunctionDeclaration(name, p[4], ret_type, p[9], p.lineno(1))
+      p[0] = ast.FunctionDeclaration(self.semanticService.build_key(identifier), p[4], ret_type, p[9], p.lineno(1))
     else:
-      p[0] = ast.FunctionDeclaration(name, None, ret_type, p[8], p.lineno(1))
+      p[0] = ast.FunctionDeclaration(self.semanticService.build_key(identifier), None, ret_type, p[8], p.lineno(1))
 
   def p_local_scope(self, p):
     "local_scope :"
     identifier = p[-1]
-    self.semanticService.scope = identifier
+    self.semanticService.set_scope(identifier)
     if p[-2] != 'function':
       return
     self.semanticService.declare(
-      name=identifier,
+      identifier=identifier,
       type=None,
       category=symbol.Category.FUNCTION,
       line=-1
@@ -210,7 +210,7 @@ class Parser:
     t = p[3]
     for ident in ids:
       self.semanticService.declare(
-        name=ident,
+        identifier=ident,
         type=symbol.Type(t),
         category=symbol.Category.PARAMETER,
         line=p.lineno(1)
@@ -249,7 +249,7 @@ class Parser:
     expr = p[3]
     expr_type = expr.type if expr is not None else None
     self.semanticService.assert_assignable(entry["type"], expr_type, p.lineno(2))
-    p[0] = ast.Assignment(ident, expr, p.lineno(1))
+    p[0] = ast.Assignment(self.semanticService.build_key(ident), expr, p.lineno(1))
 
   def p_procedure_call(self, p):
     '''procedure_call : identifier LPAREN expression_list RPAREN
@@ -431,7 +431,7 @@ class Parser:
     if entry is None:
       p[0] = self.semanticService.error_node(p.lineno(1))
       return
-    p[0] = ast.Variable(identifier, p.lineno(1), entry["type"])
+    p[0] = ast.Variable(self.semanticService.build_key(identifier), p.lineno(1), entry["type"])
 
   def p_boolean(self, p):
     '''boolean : FALSE
@@ -528,5 +528,8 @@ class Parser:
       print("Erro sintático: fim inesperado do arquivo (EOF)")
       print(f"Parser esperava o token '.' para finalizar o programa. Linha {self.lexer.lexer.lineno}")
 
-  def parse(self, source: str) -> ast.ASTNode:
-    return self.parser.parse(source, lexer=self.lexer.lexer)
+  def parse(self, source: str) -> tuple[ast.ASTNode, SymbolTable]:
+    return (
+      self.parser.parse(source, lexer=self.lexer.lexer),
+      self.semanticService.symbolsTable
+    )
