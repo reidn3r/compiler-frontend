@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import TypedDict
+from typing import List, TypedDict, Union
 
 class Type(Enum):
   INTEGER = 'integer'
@@ -14,8 +14,18 @@ class Category(Enum):
 
 GLOBAL_SCOPE = "global"
 
-class Symbol(TypedDict, total=False):
+class VariableSymbol(TypedDict):
   id: str
   type: Type
   category: Category
   scope: str
+
+class SubroutineSymbol(TypedDict):
+  id: str
+  type: Type | None
+  category: Category
+  scope: str
+  param_types: List[Type]
+  param_count: int
+
+Symbol = Union[VariableSymbol, SubroutineSymbol]

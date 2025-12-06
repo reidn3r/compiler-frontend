@@ -103,6 +103,7 @@ class Parser:
   def p_procedure_declaration(self, p):
     '''procedure_declaration : PROCEDURE identifier local_scope formal_parameters SEMICOLON subroutine_block
                              | PROCEDURE identifier local_scope SEMICOLON subroutine_block'''
+    hasParameters = len(p) == 7
     self.scope = symbol.GLOBAL_SCOPE
     identifier = p[2]
     key = self._build_key(identifier)
@@ -111,10 +112,19 @@ class Parser:
     else:
       self.symbolsTable[key] = {
         "category": symbol.Category.PROCEDURE,
-        "scope": self.scope,
+        "scope": self.scope,"scope": self.scope,
+        "param_types": [],
       }
+      if hasParameters:
+        parameters = p[4]
+        parameterCount = 0
+        for par in parameters:
+          for _ in par[0]:
+            self.symbolsTable[key]["param_types"].append(symbol.Type(par[1]))
+            parameterCount += 1
+        self.symbolsTable[key]["param_count"] = parameterCount
 
-    if len(p) == 7:
+    if hasParameters:
         p[0] = (ast.PROCEDURE, p[2], p[4], p[6])
     else:
         p[0] = (ast.PROCEDURE, p[2], p[5])
@@ -122,9 +132,10 @@ class Parser:
   def p_function_declaration(self, p):
     '''function_declaration : FUNCTION identifier local_scope formal_parameters COLON type prepare_return SEMICOLON subroutine_block
                             | FUNCTION identifier local_scope COLON type prepare_return SEMICOLON subroutine_block'''
+    hasParameters = len(p) == 10
     self.scope = symbol.GLOBAL_SCOPE
     identifier = p[2]
-    type = p[6] if len(p) == 10 else p[5]
+    type = p[6] if hasParameters else p[5]
     key = self._build_key(identifier)
     if key in self.symbolsTable:
       self._semantic_error(f"Identificador '{identifier}' já declarado neste escopo.", p.lineno(2))
@@ -133,9 +144,18 @@ class Parser:
         "type": symbol.Type(type),
         "category": symbol.Category.FUNCTION,
         "scope": self.scope,
+        "param_types": [],
       }
+      if hasParameters and p[4] is not None:
+        parameters = p[4]
+        parameterCount = 0
+        for par in parameters:
+          for _ in par[0]:
+            self.symbolsTable[key]["param_types"].append(symbol.Type(par[1]))
+            parameterCount += 1
+        self.symbolsTable[key]["param_count"] = parameterCount
 
-    if len(p) == 10:
+    if hasParameters:
         p[0] = (ast.FUNCTION, p[2], p[4], p[6], p[9])
     else:
         p[0] = (ast.FUNCTION, p[2], p[5], p[8])
@@ -172,7 +192,7 @@ class Parser:
 
   def p_formal_parameters(self, p):
     '''formal_parameters : LPAREN parameter_declaration_list RPAREN'''
-    p[0] = (ast.PARAMETERS, p[2])
+    p[0] = p[2]
 
   def p_parameter_declaration_list(self, p):
     '''parameter_declaration_list : parameter_declaration
@@ -197,7 +217,7 @@ class Parser:
           "category": symbol.Category.PARAMETER,
           "scope": self.scope,
         }
-    p[0] = (ast.PARAMETER, p[1], p[3])
+    p[0] = (p[1], p[3])
 
   def p_compound_statement(self, p):
     '''compound_statement : BEGIN statement_list END'''
@@ -241,16 +261,30 @@ class Parser:
   def p_procedure_call(self, p):
     '''procedure_call : identifier LPAREN expression_list RPAREN
                       | identifier LPAREN RPAREN'''
+    hasExpressionList = len(p) == 5
     identifier = p[1]
     key = self._build_key(identifier)
     if key not in self.symbolsTable:
       self._semantic_error(f"Identificador '{identifier}' não declarado.", p.lineno(2))
       return
     
-    if len(p) == 5:
-        p[0] = (ast.PROC_CALL, p[1], p[3])
+    if hasExpressionList:
+      expressionList = p[3]
+      paramCount = self.symbolsTable[key]["param_count"]
+      if len(expressionList) != paramCount:
+        self._semantic_error(
+          f"Número de parâmetros de {identifier} deve ser igual a {paramCount}", p.lineno(2)
+        )
+        return
+
+      for i, expression in enumerate(expressionList):
+        if expression.get("type") != self.symbolsTable[key]["param_types"][i]:
+          self._semantic_error(f"Tipo do parametro {expression.get("node")[1]} não corresponde", p.lineno(2))
+          return
+
+      p[0] = (ast.PROC_CALL, p[1], p[3])
     else:
-        p[0] = (ast.PROC_CALL, p[1], None)
+      p[0] = (ast.PROC_CALL, p[1], None)
 
   def p_conditional(self, p):
     '''conditional : IF expression THEN statement ELSE statement
@@ -428,6 +462,7 @@ class Parser:
   def p_function_call(self, p):
     '''function_call : identifier LPAREN expression_list RPAREN
                      | identifier LPAREN RPAREN'''
+    hasExpressionList = len(p) == 5
     identifier = p[1]
     key = self._build_key(identifier)
     if key in self.symbolsTable:
@@ -437,7 +472,20 @@ class Parser:
         p[0] = {}
         return
       
-      if len(p) == 5:
+      if hasExpressionList:
+        expressionList = p[3]
+        paramCount = self.symbolsTable[key]["param_count"]
+        if len(expressionList) != paramCount:
+          self._semantic_error(
+            f"Número de parâmetros de {identifier} deve ser igual a {paramCount}", p.lineno(2)
+          )
+          return
+
+        for i, expression in enumerate(expressionList):
+          if expression.get("type") != self.symbolsTable[key]["param_types"][i]:
+            self._semantic_error(f"Tipo do parametro {expression.get("node")[1]} não corresponde", p.lineno(2))
+            return
+        
         p[0] = {
           "type": type,
           "node": (ast.FUNC_CALL, p[1], p[3]),
