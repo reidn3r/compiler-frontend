@@ -41,46 +41,48 @@ class MepaService:
           visit(subr_section)
           visit(compound_stmt)
         case ast.VarSection(declarations=declarations):
-          return
-        case ast.VarDeclaration(identifiers=identifiers, var_type=var_type):
-          return
+          for decl in declarations:
+            visit(decl)
+        case ast.VarDeclaration():
+          pass
         case ast.CommandSeq(statements=statements):
-          return
+          for stmt in statements:
+            visit(stmt)
         case ast.Assignment(expr=expr):
-          return
+          visit(expr)
         case ast.UnaryOp(op=op, operand=operand):
-          return
+          pass
         case ast.BinaryOp(op=op, left=left, right=right):
-          return
+          pass
         case ast.ReadStatement(identifiers=identifiers):
-          return
+          pass
         case ast.WriteStatement(args=args):
-          return
+          pass
         case ast.IfStatement(condition=condition, then_stmt=then_stmt, else_stmt=else_stmt):
-          return
+          pass
         case ast.WhileStatement(condition=condition, body=body):
-          return
+          pass
         case ast.SubroutineSection(declarations=declarations):
-          return
+          pass
         case ast.ProcedureDeclaration(parameters=parameters, body=body):
-          return
+          pass
         case ast.FunctionDeclaration(parameters=parameters, return_type=return_type, body=body):
-          return
+          pass
         case ast.ParameterDeclaration(identifiers=identifiers, param_type=param_type):
-          return
+          pass
         case ast.SubroutineBlock(declarations=declarations, body=body):
-          return
+          pass
         case ast.ProcedureCall(args=args):
-          return
+          pass
         case ast.FunctionCall(args=args, return_type=return_type):
-          return
-        case ast.Variable(var_type=var_type):
-          return
+          pass
+        case ast.Variable(id=id, var_type=var_type):
+          pass
         case ast.BooleanLiteral(value=value):
-          return
+          pass
         case ast.NumberLiteral(value=value):
-          return
+          pass
         case _:
-          print("Nó inválido na AST")
+          pass
     
     visit(root)
