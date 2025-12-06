@@ -2,37 +2,31 @@ import ply.yacc as yacc
 from src.components.lexer import Lexer
 import src.components.ast as ast
 import src.components.symbol as symbol
+from src.components.semantic_service import SemanticService
 
 class Parser:
   def __init__(self):
     self.lexer = Lexer()
     self.tokens = self.lexer.tokens
     self.parser = yacc.yacc(module=self)
-    self.symbolsTable: dict[tuple[str, str], symbol.Symbol] = {}
-    self.scope = symbol.GLOBAL_SCOPE
-
-  def _build_key(self, id) -> tuple[str, str]:
-    return (id, self.scope)
-
-  def _semantic_error(self, msg, line):
-    print(f"Erro semântico: {msg} (Linha {line})")
+    self.semanticService = SemanticService()
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
     name = p[2]
 
-    self.symbolsTable[name] = {
+    self.semanticService.symbolsTable[name] = {
       "category": symbol.Category.PROGRAM,
-      "scope": self.scope
+      "scope": self.semanticService.scope
     }
 
     p[0] = ast.Program(name, p[4], p.lineno(1))
 
   def p_block(self, p):
     '''block : var_declaration_section subroutine_declaration_section compound_statement
-            | var_declaration_section compound_statement
-            | subroutine_declaration_section compound_statement
-            | compound_statement'''
+             | var_declaration_section compound_statement
+             | subroutine_declaration_section compound_statement
+             | compound_statement'''
     if len(p) == 4:
       p[0] = ast.Block(p[1], p[2], p[3], p.lineno(1))
     elif len(p) == 3:
@@ -61,14 +55,14 @@ class Parser:
     t = p[3]
 
     for ident in ids:
-      key = self._build_key(ident)
-      if key in self.symbolsTable:
-        self._semantic_error(f"Identificador '{ident}' já declarado neste escopo.", p.lineno(1))
+      key = self.semanticService.build_key(ident)
+      if key in self.semanticService.symbolsTable:
+        self.semanticService.print_error(f"Identificador '{ident}' já declarado neste escopo.", p.lineno(1))
       else:
-        self.symbolsTable[key] = {
+        self.semanticService.symbolsTable[key] = {
           "type": symbol.Type(t),
           "category": symbol.Category.VARIABLE,
-          "scope": self.scope
+          "scope": self.semanticService.scope
         }
 
     p[0] = ast.VarDeclaration(ids, t, p.lineno(1))
@@ -107,19 +101,19 @@ class Parser:
     '''procedure_declaration : PROCEDURE identifier local_scope formal_parameters SEMICOLON subroutine_block
                             | PROCEDURE identifier local_scope SEMICOLON subroutine_block'''
     hasParams = len(p) == 7
-    self.scope = symbol.GLOBAL_SCOPE
+    self.semanticService.scope = symbol.GLOBAL_SCOPE
 
     name = p[2]
-    key = self._build_key(name)
+    key = self.semanticService.build_key(name)
 
-    if key in self.symbolsTable:
-      self._semantic_error(f"Identificador '{name}' já declarado neste escopo.", p.lineno(2))
+    if key in self.semanticService.symbolsTable:
+      self.semanticService.print_error(f"Identificador '{name}' já declarado neste escopo.", p.lineno(2))
       p[0] = ast.ErrorNode(p.lineno(2))
       return
 
-    self.symbolsTable[key] = {
+    self.semanticService.symbolsTable[key] = {
       "category": symbol.Category.PROCEDURE,
-      "scope": self.scope,
+      "scope": self.semanticService.scope,
       "param_types": []
     }
 
@@ -128,11 +122,11 @@ class Parser:
       count = 0
       for par in params:               # par is a ParameterDeclaration
         for _ in par.identifiers:      # each identifier in the parameter list
-          self.symbolsTable[key]["param_types"].append(symbol.Type(par.param_type))
+          self.semanticService.symbolsTable[key]["param_types"].append(symbol.Type(par.param_type))
           count += 1
-      self.symbolsTable[key]["param_count"] = count
+      self.semanticService.symbolsTable[key]["param_count"] = count
     else:
-      self.symbolsTable[key]["param_count"] = 0
+      self.semanticService.symbolsTable[key]["param_count"] = 0
 
     if hasParams:
       p[0] = ast.ProcedureDeclaration(name, p[4], p[6], p.lineno(1))
@@ -143,21 +137,21 @@ class Parser:
     '''function_declaration : FUNCTION identifier local_scope formal_parameters COLON type prepare_return SEMICOLON subroutine_block
                             | FUNCTION identifier local_scope COLON type prepare_return SEMICOLON subroutine_block'''
     hasParams = len(p) == 10
-    self.scope = symbol.GLOBAL_SCOPE
+    self.semanticService.scope = symbol.GLOBAL_SCOPE
 
     name = p[2]
     ret_type = p[6] if hasParams else p[5]
-    key = self._build_key(name)
+    key = self.semanticService.build_key(name)
 
-    if key in self.symbolsTable:
-      self._semantic_error(f"Identificador '{name}' já declarado neste escopo.", p.lineno(2))
+    if key in self.semanticService.symbolsTable:
+      self.semanticService.print_error(f"Identificador '{name}' já declarado neste escopo.", p.lineno(2))
       p[0] = ast.ErrorNode(p.lineno(2))
       return
 
-    self.symbolsTable[key] = {
+    self.semanticService.symbolsTable[key] = {
       "type": symbol.Type(ret_type),
       "category": symbol.Category.FUNCTION,
-      "scope": self.scope,
+      "scope": self.semanticService.scope,
       "param_types": []
     }
 
@@ -166,11 +160,11 @@ class Parser:
       count = 0
       for par in params:
         for _ in par.identifiers:
-          self.symbolsTable[key]["param_types"].append(symbol.Type(par.param_type))
+          self.semanticService.symbolsTable[key]["param_types"].append(symbol.Type(par.param_type))
           count += 1
-      self.symbolsTable[key]["param_count"] = count
+      self.semanticService.symbolsTable[key]["param_count"] = count
     else:
-      self.symbolsTable[key]["param_count"] = 0
+      self.semanticService.symbolsTable[key]["param_count"] = 0
 
     if hasParams:
       p[0] = ast.FunctionDeclaration(name, p[4], ret_type, p[9], p.lineno(1))
@@ -180,14 +174,14 @@ class Parser:
   def p_local_scope(self, p):
     "local_scope :"
     identifier = p[-1]
-    self.scope = identifier
+    self.semanticService.scope = identifier
     if p[-2] != 'function':
       return
     # Add the function id inside the subroutine scope
-    key = self._build_key(identifier)
-    self.symbolsTable[key] = {
+    key = self.semanticService.build_key(identifier)
+    self.semanticService.symbolsTable[key] = {
       "category": symbol.Category.FUNCTION,
-      "scope": self.scope,
+      "scope": self.semanticService.scope,
     }
 
   def p_prepare_return(self, p):
@@ -195,9 +189,9 @@ class Parser:
     # Add type to the local function symbol
     functionId = p[-5] if p[-4] is None else p[-4]
     type = p[-1]
-    key = self._build_key(functionId)
-    if key in self.symbolsTable:
-      self.symbolsTable[key]["type"] = symbol.Type(type)
+    key = self.semanticService.build_key(functionId)
+    if key in self.semanticService.symbolsTable:
+      self.semanticService.symbolsTable[key]["type"] = symbol.Type(type)
 
   def p_subroutine_block(self, p):
     '''subroutine_block : var_declaration_section compound_statement
@@ -225,14 +219,14 @@ class Parser:
     t = p[3]
 
     for ident in ids:
-      key = self._build_key(ident)
-      if key in self.symbolsTable:
-        self._semantic_error(f"Identificador '{ident}' já declarado neste escopo.", p.lineno(1))
+      key = self.semanticService.build_key(ident)
+      if key in self.semanticService.symbolsTable:
+        self.semanticService.print_error(f"Identificador '{ident}' já declarado neste escopo.", p.lineno(1))
       else:
-        self.symbolsTable[key] = {
+        self.semanticService.symbolsTable[key] = {
           "type": symbol.Type(t),
           "category": symbol.Category.PARAMETER,
-          "scope": self.scope
+          "scope": self.semanticService.scope
         }
 
     p[0] = ast.ParameterDeclaration(ids, t, p.lineno(1))
@@ -262,18 +256,18 @@ class Parser:
   def p_assignment(self, p):
     '''assignment : identifier ASSIGN expression'''
     ident = p[1]
-    key = self._build_key(ident)
+    key = self.semanticService.build_key(ident)
 
-    if key not in self.symbolsTable:
-      self._semantic_error(f"Identificador '{ident}' não declarado.", p.lineno(1))
+    if key not in self.semanticService.symbolsTable:
+      self.semanticService.print_error(f"Identificador '{ident}' não declarado.", p.lineno(1))
       p[0] = ast.ErrorNode(p.lineno(1))
       return
 
-    var_type = self.symbolsTable[key]["type"]
+    var_type = self.semanticService.symbolsTable[key]["type"]
     expr = p[3]
 
     if expr is not None and expr.type != var_type:
-      self._semantic_error("A expressão à direita deve possuir o mesmo tipo da variável à esquerda", p.lineno(2))
+      self.semanticService.print_error("A expressão à direita deve possuir o mesmo tipo da variável à esquerda", p.lineno(2))
       p[0] = ast.ErrorNode(p.lineno(1))
       return
 
@@ -284,26 +278,26 @@ class Parser:
                       | identifier LPAREN RPAREN'''
     hasArgs = len(p) == 5
     ident = p[1]
-    key = self._build_key(ident)
+    key = self.semanticService.build_key(ident)
 
-    if key not in self.symbolsTable:
-      self._semantic_error(f"Identificador '{ident}' não declarado.", p.lineno(1))
+    if key not in self.semanticService.symbolsTable:
+      self.semanticService.print_error(f"Identificador '{ident}' não declarado.", p.lineno(1))
       p[0] = ast.ErrorNode(p.lineno(1))
       return
 
     if hasArgs:
       args = p[3]
-      expectedCount = self.symbolsTable[key]["param_count"]
-      expectedTypes = self.symbolsTable[key]["param_types"]
+      expectedCount = self.semanticService.symbolsTable[key]["param_count"]
+      expectedTypes = self.semanticService.symbolsTable[key]["param_types"]
 
       if len(args) != expectedCount:
-        self._semantic_error(f"Número de parâmetros de {ident} deve ser igual a {expectedCount}", p.lineno(2))
+        self.semanticService.print_error(f"Número de parâmetros de {ident} deve ser igual a {expectedCount}", p.lineno(2))
         p[0] = ast.ErrorNode(p.lineno(1))
         return
 
       for i, expr in enumerate(args):
         if expr.type != expectedTypes[i]:
-          self._semantic_error(f"Tipo do parâmetro {i+1} não corresponde", p.lineno(2))
+          self.semanticService.print_error(f"Tipo do parâmetro {i+1} não corresponde", p.lineno(2))
           p[0] = ast.ErrorNode(p.lineno(1))
           return
 
@@ -316,7 +310,7 @@ class Parser:
                   | IF expression THEN statement'''
     cond = p[2]
     if cond.type != symbol.Type.BOOLEAN:
-      self._semantic_error("Expressão em condicional deve ser do tipo booleano", p.lineno(1))
+      self.semanticService.print_error("Expressão em condicional deve ser do tipo booleano", p.lineno(1))
       p[0] = ast.ErrorNode(p.lineno(1))
       return
 
@@ -329,7 +323,7 @@ class Parser:
     '''repetition : WHILE expression DO statement'''
     cond = p[2]
     if cond.type != symbol.Type.BOOLEAN:
-      self._semantic_error("Expressão em repetição deve ser do tipo booleano", p.lineno(1))
+      self.semanticService.print_error("Expressão em repetição deve ser do tipo booleano", p.lineno(1))
       p[0] = ast.ErrorNode(p.lineno(1))
       return
     p[0] = ast.WhileStatement(cond, p[4], p.lineno(1))
@@ -338,9 +332,9 @@ class Parser:
     '''read_statement : READ LPAREN identifier_list RPAREN'''
     id_list = p[3]
     for ident in id_list:
-      key = self._build_key(ident)
-      if key not in self.symbolsTable:
-        self._semantic_error("Argumentos de read devem ser variáveis declaradas e visíveis no escopo atual.", p.lineno(2))
+      key = self.semanticService.build_key(ident)
+      if key not in self.semanticService.symbolsTable:
+        self.semanticService.print_error("Argumentos de read devem ser variáveis declaradas e visíveis no escopo atual.", p.lineno(2))
         p[0] = ast.ErrorNode(p.lineno(2))
         return
     p[0] = ast.ReadStatement(id_list, p.lineno(1))
@@ -350,7 +344,7 @@ class Parser:
     args = p[3]
     for expr in args:
       if expr.type is None:
-        self._semantic_error("Argumentos de write devem ser expressões válidas e bem tipadas.", p.lineno(2))
+        self.semanticService.print_error("Argumentos de write devem ser expressões válidas e bem tipadas.", p.lineno(2))
         p[0] = ast.ErrorNode(p.lineno(2))
         return
     p[0] = ast.WriteStatement(args, p.lineno(1))
@@ -404,7 +398,7 @@ class Parser:
           node.type = symbol.Type.INTEGER
           p[0] = node
         else:
-          self._semantic_error("Operandos de expressão aritmética devem ser inteiros", p.lineno(2))
+          self.semanticService.print_error("Operandos de expressão aritmética devem ser inteiros", p.lineno(2))
           p[0] = ast.ErrorNode(p.lineno(1))
 
       else:
@@ -413,7 +407,7 @@ class Parser:
           node.type = symbol.Type.BOOLEAN
           p[0] = node
         else:
-          self._semantic_error("Operandos de expressão lógica devem ser booleanos", p.lineno(2))
+          self.semanticService.print_error("Operandos de expressão lógica devem ser booleanos", p.lineno(2))
           p[0] = ast.ErrorNode(p.lineno(1))
 
   def p_term(self, p):
@@ -434,7 +428,7 @@ class Parser:
           node.type = symbol.Type.INTEGER
           p[0] = node
         else:
-          self._semantic_error("Operandos de expressão aritmética devem ser inteiros", p.lineno(2))
+          self.semanticService.print_error("Operandos de expressão aritmética devem ser inteiros", p.lineno(2))
           p[0] = ast.ErrorNode(p.lineno(1))
 
       else:
@@ -443,7 +437,7 @@ class Parser:
           node.type = symbol.Type.BOOLEAN
           p[0] = node
         else:
-          self._semantic_error("Operandos de expressão lógica devem ser booleanos", p.lineno(2))
+          self.semanticService.print_error("Operandos de expressão lógica devem ser booleanos", p.lineno(2))
           p[0] = ast.ErrorNode(p.lineno(1))
 
   def p_factor(self, p):
@@ -468,7 +462,7 @@ class Parser:
           node.type = symbol.Type.BOOLEAN
           p[0] = node
         else:
-          self._semantic_error("Operandos de expressão lógica devem ser booleanos", p.lineno(1))
+          self.semanticService.print_error("Operandos de expressão lógica devem ser booleanos", p.lineno(1))
           p[0] = ast.ErrorNode(p.lineno(1))
 
       else:
@@ -477,18 +471,18 @@ class Parser:
           node.type = symbol.Type.INTEGER
           p[0] = node
         else:
-          self._semantic_error("Operandos de expressão aritmética devem ser inteiros", p.lineno(1))
+          self.semanticService.print_error("Operandos de expressão aritmética devem ser inteiros", p.lineno(1))
           p[0] = ast.ErrorNode(p.lineno(1))
 
   def p_variable(self, p):
     '''variable : identifier'''
     identifier = p[1]
-    key = self._build_key(identifier)
-    if key in self.symbolsTable:
-      var_type = self.symbolsTable[key]["type"]
+    key = self.semanticService.build_key(identifier)
+    if key in self.semanticService.symbolsTable:
+      var_type = self.semanticService.symbolsTable[key]["type"]
       p[0] = ast.Variable(identifier, p.lineno(1), var_type)
     else:
-      self._semantic_error(f"Variável '{identifier}' não declarada", p.lineno(1))
+      self.semanticService.print_error(f"Variável '{identifier}' não declarada", p.lineno(1))
       p[0] = ast.ErrorNode(p.lineno(1))
 
   def p_boolean(self, p):
@@ -501,32 +495,32 @@ class Parser:
                      | identifier LPAREN RPAREN'''
     hasArgs = len(p) == 5
     identifier = p[1]
-    key = self._build_key(identifier)
+    key = self.semanticService.build_key(identifier)
 
-    if key not in self.symbolsTable:
-      self._semantic_error(f"Função '{identifier}' não foi declarada", p.lineno(1))
+    if key not in self.semanticService.symbolsTable:
+      self.semanticService.print_error(f"Função '{identifier}' não foi declarada", p.lineno(1))
       p[0] = ast.ErrorNode(p.lineno(1))
       return
 
-    returnType = self.symbolsTable[key].get("type")
+    returnType = self.semanticService.symbolsTable[key].get("type")
     if returnType is None:
-      self._semantic_error(f"Identificador '{identifier}' não possui tipo associado", p.lineno(1))
+      self.semanticService.print_error(f"Identificador '{identifier}' não possui tipo associado", p.lineno(1))
       p[0] = ast.ErrorNode(p.lineno(1))
       return
 
     if hasArgs:
       args = p[3]
-      expectedCount = self.symbolsTable[key]["param_count"]
-      expectedTypes = self.symbolsTable[key]["param_types"]
+      expectedCount = self.semanticService.symbolsTable[key]["param_count"]
+      expectedTypes = self.semanticService.symbolsTable[key]["param_types"]
 
       if len(args) != expectedCount:
-        self._semantic_error(f"Número de parâmetros de {identifier} deve ser igual a {expectedCount}", p.lineno(2))
+        self.semanticService.print_error(f"Número de parâmetros de {identifier} deve ser igual a {expectedCount}", p.lineno(2))
         p[0] = ast.ErrorNode(p.lineno(1))
         return
 
       for i, arg in enumerate(args):
         if arg.type != expectedTypes[i]:
-          self._semantic_error(f"Tipo do parâmetro {i+1} não corresponde", p.lineno(2))
+          self.semanticService.print_error(f"Tipo do parâmetro {i+1} não corresponde", p.lineno(2))
           p[0] = ast.ErrorNode(p.lineno(1))
           return
 
