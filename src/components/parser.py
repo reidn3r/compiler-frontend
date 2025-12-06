@@ -15,7 +15,7 @@ class Parser:
     return (id, self.scope)
 
   def _semantic_error(self, msg, line):
-    print(f"Erro Semântico: {msg} (Linha {line})")
+    print(f"Erro semântico: {msg} (Linha {line})")
 
   def p_program(self, p):
     '''program : PROGRAM identifier SEMICOLON block DOT'''
@@ -231,7 +231,7 @@ class Parser:
     
     symbol = self.symbolsTable[key]
     expression = p[3]
-    if symbol["type"] != expression["type"]:
+    if expression is not None and symbol.get("type") != expression.get("type"):
       self._semantic_error(
         f"A expressão à direita deve possuir o mesmo tipo da varíavel à esquerda", p.lineno(2)
       )
@@ -241,6 +241,12 @@ class Parser:
   def p_procedure_call(self, p):
     '''procedure_call : identifier LPAREN expression_list RPAREN
                       | identifier LPAREN RPAREN'''
+    identifier = p[1]
+    key = self._build_key(identifier)
+    if key not in self.symbolsTable:
+      self._semantic_error(f"Identificador '{identifier}' não declarado.", p.lineno(2))
+      return
+    
     if len(p) == 5:
         p[0] = (ast.PROC_CALL, p[1], p[3])
     else:
@@ -314,7 +320,7 @@ class Parser:
       op = p[2]
       right = p[3]
       if op == '+' or op == '-':
-        if left["type"] == symbol.Type.INTEGER and right["type"] == symbol.Type.INTEGER:
+        if left.get("type") == symbol.Type.INTEGER and right.get("type") == symbol.Type.INTEGER:
           p[0] = {
             "type": symbol.Type.INTEGER,
             "node": (ast.BINARY_OP, p[1], p[2], p[3])
@@ -425,7 +431,12 @@ class Parser:
     identifier = p[1]
     key = self._build_key(identifier)
     if key in self.symbolsTable:
-      type = self.symbolsTable[key]["type"]
+      type = self.symbolsTable[key].get("type")
+      if type is None:
+        self._semantic_error(f"Identificador '{identifier}' não possui tipo associado", p.lineno(2))
+        p[0] = {}
+        return
+      
       if len(p) == 5:
         p[0] = {
           "type": type,
@@ -488,19 +499,16 @@ class Parser:
                         | var_declaration_section PROCEDURE'''
     print(f"Erro sintático: token inesperado '{p[2]}' (tipo {p.slice[2].type}) na linha {p.lineno(2)}")
     print(f"Subrotinas aninhadas não são permitidas. Linha {p.lineno(2)}")
-    raise SyntaxError
 
   def p_trailing_semicolon(self, p):
     '''compound_statement : BEGIN statement_list SEMICOLON END'''
     print(f"Erro sintático: token inesperado '{p[4]}' (tipo {p.slice[4].type}) na linha {p.lineno(4)}")
     print(f"Token 'end' inesperado. Não deveria haver o ';' no último comando. Linha {p.lineno(4)}")
-    raise SyntaxError
   
   def p_no_parameters_subroutine(self, p):
     '''formal_parameters : LPAREN RPAREN'''
     print(f"Erro sintático: token inesperado '{p[2]}' (tipo {p.slice[2].type}) na linha {p.lineno(2)}")
     print(f"Não deveria haver o '()' em subrotinas sem parâmetros. Linha {p.lineno(2)}")
-    raise SyntaxError
 
   def p_error(self, p):
     if p:
