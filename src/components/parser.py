@@ -308,10 +308,23 @@ class Parser:
 
   def p_read_statement(self, p):
     '''read_statement : READ LPAREN identifier_list RPAREN'''
+    identifierList = p[3]
+    for identifier in identifierList:
+      key = self._build_key(identifier)
+      if key not in self.symbolsTable:
+        self._semantic_error(f"Argumentos de read devem ser variáveis declaradas e visíveis no escopo atual.", p.lineno(2))
+        return
+    
     p[0] = (ast.READ, p[3])
 
   def p_write_statement(self, p):
     '''write_statement : WRITE LPAREN expression_list RPAREN'''
+    expressionList = p[3]
+    for expression in expressionList:
+      if expression.get("type") is None:
+        self._semantic_error(f"Argumentos de write devem ser expressões válidas e bem tipadas.", p.lineno(2))
+        return
+
     p[0] = (ast.WRITE, p[3])
 
   def p_expression_list(self, p):
@@ -363,8 +376,9 @@ class Parser:
           self._semantic_error(
             f"Operandos de expressão aritmética devem ser do tipo inteiro", p.lineno(2)
           )
+          p[0] = {} # Error Node
       else:
-        if left["type"] == symbol.Type.BOOLEAN and right["type"] == symbol.Type.BOOLEAN:
+        if left.get("type") == symbol.Type.BOOLEAN and right.get("type") == symbol.Type.BOOLEAN:
           p[0] = {
             "type": symbol.Type.BOOLEAN,
             "node": (ast.BINARY_OP, p[1], p[2], p[3])
@@ -386,7 +400,7 @@ class Parser:
       op = p[2]
       right = p[3]
       if op == '*' or op == 'div':
-        if left["type"] == symbol.Type.INTEGER and right["type"] == symbol.Type.INTEGER:
+        if left.get("type") == symbol.Type.INTEGER and right.get("type") == symbol.Type.INTEGER:
           p[0] = {
             "type": symbol.Type.INTEGER,
             "node": (ast.BINARY_OP, p[1], p[2], p[3])
@@ -395,8 +409,9 @@ class Parser:
           self._semantic_error(
             f"Operandos de expressão aritmética devem ser do tipo inteiro", p.lineno(2)
           )
+          p[0] = {} # Error Node
       else:
-        if left["type"] == symbol.Type.BOOLEAN and right["type"] == symbol.Type.BOOLEAN:
+        if left.get("type") == symbol.Type.BOOLEAN and right.get("type") == symbol.Type.BOOLEAN:
           p[0] = {
             "type": symbol.Type.BOOLEAN,
             "node": (ast.BINARY_OP, p[1], p[2], p[3])
@@ -427,6 +442,7 @@ class Parser:
             self._semantic_error(
               f"Operandos de expressão lógica devem ser do tipo booleano", p.lineno(2)
             )
+            p[0] = {} # Error node
         else:
           if p[2]["type"] == symbol.Type.INTEGER:
             p[0] = {
@@ -437,6 +453,7 @@ class Parser:
             self._semantic_error(
               f"Operandos de expressão aritmética devem ser do tipo inteiro", p.lineno(2)
             )
+            p[0] = {} # Error node
     else:
         p[0] = p[2]
 
@@ -450,6 +467,8 @@ class Parser:
         "type": type,
         "node": (ast.VAR, p[1]),
       }
+    else:
+      p[0] = {} # Error node
 
   def p_boolean(self, p):
     '''boolean : FALSE
@@ -469,7 +488,7 @@ class Parser:
       type = self.symbolsTable[key].get("type")
       if type is None:
         self._semantic_error(f"Identificador '{identifier}' não possui tipo associado", p.lineno(2))
-        p[0] = {}
+        p[0] = {} # Error node
         return
       
       if hasExpressionList:
@@ -479,11 +498,13 @@ class Parser:
           self._semantic_error(
             f"Número de parâmetros de {identifier} deve ser igual a {paramCount}", p.lineno(2)
           )
+          p[0] = {} # Error node
           return
 
         for i, expression in enumerate(expressionList):
           if expression.get("type") != self.symbolsTable[key]["param_types"][i]:
             self._semantic_error(f"Tipo do parametro {expression.get("node")[1]} não corresponde", p.lineno(2))
+            p[0] = {} # Error node
             return
         
         p[0] = {
