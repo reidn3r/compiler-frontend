@@ -1,7 +1,7 @@
 import sys
 from src.components.parser import Parser
 from src.utils.read_file import file_to_buffer
-import pprint
+from src.components.ast import print_ast
 
 def main():
   if len(sys.argv) < 2:
@@ -13,8 +13,8 @@ def main():
   parser = Parser()
   ast = parser.parse(buffer)
   
-  #if ast:
-    #pprint.pprint(ast)
+  if ast:
+    print_ast(ast)
 
 if __name__ == "__main__":
   main()
