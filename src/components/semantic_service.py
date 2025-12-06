@@ -8,6 +8,7 @@ class SemanticService:
   def __init__(self):
     self.symbolsTable: SymbolTable = {}
     self.scope = symbol.GLOBAL_SCOPE
+    self.addrCounter = 0
 
   def set_scope(self, scope):
     self.scope = scope
@@ -29,6 +30,7 @@ class SemanticService:
     entry = {
       "category": category,
       "scope": self.scope,
+      "address": self.addrCounter
     }
     if type is not None:
       entry["type"] = type
@@ -37,6 +39,7 @@ class SemanticService:
     if param_count is not None:
       entry["param_count"] = param_count
     self.symbolsTable[key] = entry
+    self.addrCounter += 1
     return True
 
   def lookup(self, name, line=-1):

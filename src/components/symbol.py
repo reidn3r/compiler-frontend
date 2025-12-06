@@ -19,12 +19,14 @@ class VariableSymbol(TypedDict):
   type: Type
   category: Category
   scope: str
+  address: int
 
 class SubroutineSymbol(TypedDict):
   id: str
   type: Type | None
   category: Category
   scope: str
+  address: int
   param_types: List[Type]
   param_count: int
 
