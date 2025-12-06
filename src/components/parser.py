@@ -59,7 +59,7 @@ class Parser:
         name=ident,
         type=symbol.Type(t),
         category=symbol.Category.VARIABLE,
-        line=p.lineno(1)
+        line=p.lineno(2)
       )
 
     p[0] = ast.VarDeclaration(ids, t, p.lineno(1))
@@ -242,7 +242,7 @@ class Parser:
   def p_assignment(self, p):
     '''assignment : identifier ASSIGN expression'''
     ident = p[1]
-    entry = self.semanticService.lookup(ident, p.lineno(1))
+    entry = self.semanticService.lookup(ident, p.lineno(2))
     if entry is None:
       p[0] = self.semanticService.error_node(p.lineno(1))
       return
@@ -334,15 +334,21 @@ class Parser:
 
   def p_simple_expression(self, p):
     '''simple_expression : term
-                        | simple_expression PLUS term
-                        | simple_expression MINUS term
-                        | simple_expression OR term'''
+                         | simple_expression PLUS term
+                         | simple_expression MINUS term
+                         | simple_expression OR term'''
     if len(p) == 2:
       p[0] = p[1]
     else:
       left = p[1]
       op = p[2]
       right = p[3]
+
+      if not all([
+        self.semanticService.assert_no_procedure(left, p.lineno(2)),
+        self.semanticService.assert_no_procedure(right, p.lineno(2))
+      ]):
+        return
 
       if op in ('+', '-'):
         t = self.semanticService.assert_binary(left, right, symbol.Type.INTEGER, p.lineno(2))
@@ -372,6 +378,12 @@ class Parser:
       left = p[1]
       op = p[2]
       right = p[3]
+
+      if not all([
+        self.semanticService.assert_no_procedure(left, p.lineno(2)),
+        self.semanticService.assert_no_procedure(right, p.lineno(2))
+      ]):
+        return
 
       if op in ('*', 'div'):
         t = self.semanticService.assert_binary(left, right, symbol.Type.INTEGER, p.lineno(2))
@@ -415,7 +427,7 @@ class Parser:
   def p_variable(self, p):
     '''variable : identifier'''
     identifier = p[1]
-    entry = self.semanticService.lookup(identifier, p.lineno(1))
+    entry = self.semanticService.lookup(identifier)
     if entry is None:
       p[0] = self.semanticService.error_node(p.lineno(1))
       return
@@ -428,7 +440,7 @@ class Parser:
 
   def p_function_call(self, p):
     '''function_call : identifier LPAREN expression_list RPAREN
-                    | identifier LPAREN RPAREN'''
+                     | identifier LPAREN RPAREN'''
     hasArgs = len(p) == 5
     ident = p[1]
     entry = self.semanticService.lookup(ident, p.lineno(1))

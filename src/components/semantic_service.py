@@ -39,9 +39,15 @@ class SemanticService:
   def lookup(self, name, line=-1):
     key = self.build_key(name)
     if key not in self.symbolsTable:
-      self.print_error(f"Identificador '{name}' não declarado.", line)
+      line >= 0 and self.print_error(f"Identificador '{name}' não declarado.", line)
       return None
     return self.symbolsTable[key]
+  
+  def assert_no_procedure(self, node, line):
+    if node is None or node.type is None:
+      self.print_error("Expressões não podem conter chamadas de procedimento.", line)
+      return False
+    return True
 
   def assert_type(self, node, expected, line):
     if node.type != expected:
@@ -92,13 +98,13 @@ class SemanticService:
         return self.error_node(line)
     return args
 
-  def assert_param_count(self, args, expected, line):
-    if len(args) != expected:
+  def assert_param_count(self, entry: symbol.Symbol, expected, line):
+    if entry.get("param_count") != expected:
       self.print_error(f"Número de parâmetros deve ser igual a {expected}.", line)
       return False
     return True
 
-  def assert_param_types(self, entry, args, line):
+  def assert_param_types(self, entry: symbol.Symbol, args, line):
     expected = entry.get("param_types", [])
     for i, arg in enumerate(args):
       if i >= len(expected) or arg.type != expected[i]:
